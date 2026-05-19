@@ -1,0 +1,28 @@
+{
+  "manifest_version": 3,
+  "name": "WorkTimeBudget",
+  "description": "월 잔여 근무시간을 남은 근무일로 나눠 하루 평균 추가/조기 퇴근 시간을 안내",
+  "version": "1.0.0",
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "permissions": ["storage"],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "WorkTimeBudget 설정",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": ["https://hr.com2us.com/*"],
+      "js": ["content.js"]
+    }
+  ]
+}
