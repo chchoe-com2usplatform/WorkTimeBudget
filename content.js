@@ -32,10 +32,16 @@
     const cells = [...document.querySelectorAll('td[role="gridcell"]')];
     const todayIdx = cells.findIndex(td => td.className.trim() === 'k-today');
     if (todayIdx === -1) return 0;
-    return cells.slice(todayIdx).filter(td => {
+    const count = cells.slice(todayIdx).filter(td => {
       const cls = td.className.trim();
       return cls === '' || cls === 'k-today';
     }).length;
+    // 오늘 이미 퇴근/휴가 처리되었으면 카운트에서 오늘 제외
+    const leaveEl = document.getElementById('txt_leave');
+    const leaveTaken = leaveEl
+      ? (leaveEl.value ?? leaveEl.textContent ?? '').trim() !== ''
+      : false;
+    return leaveTaken ? Math.max(0, count - 1) : count;
   }
 
   // 분 → { sign, h, m } (음수/60분 캐리 처리)
@@ -162,6 +168,9 @@
       });
     });
     observer.observe(document.documentElement, { childList: true, subtree: true });
+
+    // main-world.js가 Kendo TimePicker 값 변화를 알려오면 즉시 재렌더
+    document.addEventListener('wtb-leave-change', () => render());
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
