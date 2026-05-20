@@ -34,7 +34,9 @@
     if (todayIdx === -1) return 0;
     const count = cells.slice(todayIdx).filter(td => {
       const cls = td.className.trim();
-      return cls === '' || cls === 'k-today';
+      if (cls !== '' && cls !== 'k-today') return false;
+      if (td.querySelector('div.circle_blue_circle_series')) return false;
+      return true;
     }).length;
     // 오늘 이미 퇴근/휴가 처리되었으면 카운트에서 오늘 제외
     const leaveEl = document.getElementById('txt_leave');
