@@ -74,17 +74,22 @@
     const days = countRemainingWorkdays();
     if (days === 0) return { kind: 'error', reason: 'no-days' };
 
-    const perDayMin = (remainMin - days * standardDailyHours * 60) / days;
+    const totalMin = remainMin - days * standardDailyHours * 60;
+    const perDayMin = totalMin / days;
     const { sign, h, m } = splitMinutes(perDayMin);
-    const timeStr = h === 0 ? `${m}분` : `${h}시간 ${m}분`;
+    const total = splitMinutes(totalMin);
+    const perDayStr = h === 0 ? `${m}분` : `${h}시간 ${m}분`;
+    const totalStr = total.h === 0 ? `${total.m}분` : `${total.h}시간 ${total.m}분`;
     const bg = sign === '-' ? COLOR_EARLY : COLOR_LATE;
-    const verb = sign === '-' ? '일찍 퇴근해도 됩니다' : '늦게 퇴근하면 됩니다';
+    const verb = sign === '-' ? '덜 하면 됩니다' : '더 하면 됩니다';
 
     const frag = document.createDocumentFragment();
     frag.append(makeChip(`${days}일`, bg));
     frag.append('간 ');
-    frag.append(makeChip(timeStr, bg));
-    frag.append(`씩 ${verb}.`);
+    frag.append(makeChip(perDayStr, bg));
+    frag.append('씩 ');
+    frag.append(makeChip(totalStr, bg));
+    frag.append(` ${verb}.`);
     return { kind: 'ok', frag };
   }
 
