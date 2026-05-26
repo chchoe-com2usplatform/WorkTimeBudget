@@ -29,21 +29,39 @@
   // 평일 근무 셀은 class가 빈 문자열 또는 'k-today'만 해당.
   // (k-other-month / k-weekend / dews-holiday 는 제외)
   function countRemainingWorkdays() {
-    const cells = [...document.querySelectorAll('td[role="gridcell"]')];
-    const todayIdx = cells.findIndex(td => td.className.trim() === 'k-today');
-    if (todayIdx === -1) return 0;
-    const count = cells.slice(todayIdx).filter(td => {
-      const cls = td.className.trim();
-      if (cls !== '' && cls !== 'k-today') return false;
-      if (td.querySelector('div.circle_blue_circle_series')) return false;
-      return true;
-    }).length;
+    // 페이지에 캘린더 위젯이 여러 개 있을 수 있으므로 오늘 셀이 포함된
+    // table로 범위를 한정해야 다른 위젯의 셀이 섞여 들어오지 않는다.
+    const todayCell = document.querySelector('td[role="gridcell"].k-today');
+    if (!todayCell) return { workdays: 0, leaveDays: 0 };
+    const table = todayCell.closest('table');
+    if (!table) return { workdays: 0, leaveDays: 0 };
+
+    // 평일 = 다른 달/주말/회사 휴일 클래스가 없는 셀
+    // (k-state-selected 등 부가 클래스에 영향 받지 않도록 classList로 판정)
+    const isWorkday = td =>
+      !td.classList.contains('k-other-month') &&
+      !td.classList.contains('k-weekend') &&
+      !td.classList.contains('dews-holiday');
+
+    const cells = [...table.querySelectorAll('td[role="gridcell"]')];
+    const todayIdx = cells.indexOf(todayCell);
+
+    const future = cells.slice(todayIdx).filter(isWorkday);
+    const leaveDays = future.filter(td =>
+      td.querySelector('div.circle_blue.circle_series')
+    ).length;
+    
+    const workdays = future.length - leaveDays;
+
     // 오늘 이미 퇴근/휴가 처리되었으면 카운트에서 오늘 제외
     const leaveEl = document.getElementById('txt_leave');
     const leaveTaken = leaveEl
       ? (leaveEl.value ?? leaveEl.textContent ?? '').trim() !== ''
       : false;
-    return leaveTaken ? Math.max(0, count - 1) : count;
+    return {
+      workdays: leaveTaken ? Math.max(0, workdays - 1) : workdays,
+      leaveDays
+    };
   }
 
   // 분 → { sign, h, m } (음수/60분 캐리 처리)
@@ -71,10 +89,15 @@
     const remainMin = getRemainingMinutes();
     if (remainMin === null) return { kind: 'error', reason: 'no-source' };
 
-    const days = countRemainingWorkdays();
+    console.log('remain '  + remainMin);
+
+    const { workdays: days, leaveDays } = countRemainingWorkdays();
     if (days === 0) return { kind: 'error', reason: 'no-days' };
 
-    const totalMin = remainMin - days * standardDailyHours * 60;
+    const dailyStdMin = standardDailyHours * 60;
+    // 미래 휴가일은 표준 시간이 자동 처리되므로 잔여시간에서 미리 차감
+    const adjustedRemainMin = remainMin - leaveDays * dailyStdMin;
+    const totalMin = adjustedRemainMin - days * dailyStdMin;
     const perDayMin = totalMin / days;
     const { sign, h, m } = splitMinutes(perDayMin);
     const total = splitMinutes(totalMin);
@@ -174,10 +197,32 @@
         render();
       });
     });
-    observer.observe(document.documentElement, { childList: true, subtree: true });
+    observer.observe(document.documentElement, {
+      childList: true, subtree: true, characterData: true
+    });
 
     // main-world.js가 Kendo TimePicker 값 변화를 알려오면 즉시 재렌더
     document.addEventListener('wtb-leave-change', () => render());
+
+    // SPA 라우팅 감지: URL 변경 시 기존 박스를 제거하고 재렌더
+    let lastUrl = location.href;
+    const onRouteChange = () => {
+      if (location.href === lastUrl) return;
+      lastUrl = location.href;
+      document.getElementById(BOX_ID)?.remove();
+      document.getElementById(BR_ID)?.remove();
+      render();
+    };
+    window.addEventListener('popstate', onRouteChange);
+    window.addEventListener('hashchange', onRouteChange);
+    ['pushState', 'replaceState'].forEach(method => {
+      const orig = history[method];
+      history[method] = function (...args) {
+        const result = orig.apply(this, args);
+        onRouteChange();
+        return result;
+      };
+    });
   }
 
   chrome.storage.onChanged.addListener((changes, area) => {
